@@ -6,7 +6,31 @@ on:
   workflow_dispatch:
 
 jobs:
+  system-health:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: pip install -r cicd/requirements-ci.txt
+    - name: Run system health check
+      env:
+        CPU_THRESHOLD: 70
+        MEMORY_THRESHOLD: 70
+        DISK_THRESHOLD: 70
+      run: python cicd/system_monitor_ci.py
+    - name: Upload health logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: health-logs
+        path: system_health.log
+
   build-and-deploy:
+    needs: system-health
     runs-on: ubuntu-latest
     
     steps:
@@ -131,6 +155,25 @@ jobs:
       with:
         name: kubeconfig
         path: kubeconfig.yaml
+    
+    - name: Run backup after deployment
+      env:
+        SOURCE_DIR: ./k8s
+        BACKUP_DIR: /tmp/backups
+        S3_BUCKET: ${{ secrets.S3_BACKUP_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: us-east-1
+      run: |
+        pip install -r cicd/requirements-ci.txt
+        python cicd/backup_ci.py
+    
+    - name: Upload backup logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backup-logs
+        path: backup.log
     
     - name: Cleanup on failure
       if: failure()
