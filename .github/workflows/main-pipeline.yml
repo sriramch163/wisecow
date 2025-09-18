@@ -1,0 +1,16 @@
+name: Main CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  docker-build:
+    uses: ./.github/workflows/docker-build.yml
+    secrets: inherit
+
+  system-ops:
+    needs: docker-build
+    uses: ./.github/workflows/system-ops.yml
+    secrets: inherit

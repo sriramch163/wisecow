@@ -1,13 +1,10 @@
 name: System Operations
 
 on:
+  workflow_call:
   schedule:
     - cron: '0 */6 * * *'  # Every 6 hours
   workflow_dispatch:
-  push:
-    paths:
-      - 'system_monitor.py'
-      - 'backup_solution.py'
 
 jobs:
   health-check:
