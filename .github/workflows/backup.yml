@@ -1,0 +1,31 @@
+name: Automated Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.REMOTE_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Run Backup
+      run: |
+        ./backup_cicd.sh "${{ secrets.SOURCE_DIR }}" "${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}" "${{ secrets.REMOTE_DIR }}"
+    
+    - name: Upload Backup Log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: backup-log
+        path: backup.log
