@@ -63,6 +63,7 @@ jobs:
       run: |
         sudo systemctl flush-dns || true
         sudo resolvectl flush-caches || true
+        ##
     
     - name: Deploy to MINIKUBE CLUSTER
       run: |
