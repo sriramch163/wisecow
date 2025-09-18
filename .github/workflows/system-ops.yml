@@ -4,7 +4,6 @@ on:
   workflow_call:
   schedule:
     - cron: '0 */6 * * *'  # Every 6 hours
-  workflow_dispatch:
 
 jobs:
   health-check:
@@ -33,6 +32,7 @@ jobs:
         with:
           name: health-logs
           path: system_health.log
+          overwrite: true
 
   backup:
     runs-on: ubuntu-latest
@@ -64,6 +64,7 @@ jobs:
         with:
           name: backup-logs
           path: backup.log
+          overwrite: true
       
       - name: Upload backup files
         uses: actions/upload-artifact@v4
@@ -71,6 +72,7 @@ jobs:
         with:
           name: backup-files
           path: /tmp/backups/
+          overwrite: true
 
   notify:
     runs-on: ubuntu-latest
