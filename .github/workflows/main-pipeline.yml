@@ -13,8 +13,3 @@ jobs:
     needs: docker-build
     uses: ./.github/workflows/system-ops.yml
     secrets: inherit
-
-  system-ops:
-    needs: docker-build
-    uses: ./.github/workflows/system-ops.yml
-    secrets: inherit
