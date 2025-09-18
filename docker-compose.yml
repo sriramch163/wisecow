@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  wisecow:
+    build: .
+    ports:
+      - "4499:4499"
+    restart: always
+    container_name: wisecow-app
+    #

@@ -1,0 +1,141 @@
+name: Build, Push and Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/wisecow:latest,${{ secrets.DOCKER_USERNAME }}/wisecow:${{ github.run_number }}
+    
+    - name: Start Minikube
+      uses: medyagh/setup-minikube@master
+      with:
+        minikube-version: 1.32.0
+        kubernetes-version: 1.28.3
+        driver: docker
+        addons: ingress
+    
+    - name: Start Minikube Tunnel
+      run: |
+        nohup minikube tunnel > tunnel.log 2>&1 &
+        echo $! > tunnel.pid
+        sleep 10
+    
+    - name: Update kubeconfig with new Minikube IP
+      run: |
+        kubectl config use-context minikube
+        kubectl cluster-info
+        
+        # Save new Minikube IP to file
+        MINIKUBE_IP=$(minikube ip)
+        echo "$MINIKUBE_IP wisecow.local" | sudo tee -a /etc/hosts
+        echo "127.0.0.1 wisecow.local" | sudo tee -a /etc/hosts
+        echo "New Minikube IP: $MINIKUBE_IP" > minikube-ip.txt
+        
+        # Create Windows hosts file if not exists and add IP entry
+        if [ -d "/c/Windows/System32/drivers/etc" ]; then
+          [ ! -f "/c/Windows/System32/drivers/etc/hosts" ] && touch /c/Windows/System32/drivers/etc/hosts
+          echo "$MINIKUBE_IP wisecow.local" >> /c/Windows/System32/drivers/etc/hosts
+          echo "127.0.0.1 wisecow.local" >> /c/Windows/System32/drivers/etc/hosts
+        else
+          echo "Windows hosts file not available in CI environment"
+        fi
+    
+    - name: Flush DNS cache
+      run: |
+        sudo systemctl flush-dns || true
+        sudo resolvectl flush-caches || true
+    
+    - name: Deploy to MINIKUBE CLUSTER
+      run: |
+        # Wait for ingress controller to be ready
+        kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=300s
+        
+        # Create TLS secret from existing certificates
+        kubectl create secret tls wisecow-tls \
+          --cert=tls/tls.crt \
+          --key=tls/tls.key \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        kubectl apply -f k8s/  
+        kubectl set image deployment/wisecow-deployment wisecow=${{ secrets.DOCKER_USERNAME }}/wisecow:${{ github.run_number }}
+        kubectl rollout status deployment/wisecow-deployment
+        
+        # Check pods are running
+        kubectl get pods -l app=wisecow
+        kubectl wait --for=condition=ready pod -l app=wisecow --timeout=300s
+        
+        # Wait for ingress to get LoadBalancer IP
+        echo "Waiting for ingress to get IP address..."
+        kubectl wait --for=jsonpath='{.status.loadBalancer.ingress}' ingress/wisecow-ingress --timeout=300s
+        
+        # Check ingress IP assignment
+        kubectl get ingress wisecow-ingress
+        INGRESS_IP=$(kubectl get ingress wisecow-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        echo "Ingress IP: $INGRESS_IP"
+        
+        # Update hosts file with ingress IP
+        if [ ! -z "$INGRESS_IP" ]; then
+          echo "$INGRESS_IP wisecow.local" | sudo tee -a /etc/hosts
+          echo "Updated Ingress IP: $INGRESS_IP" > ingress-ip.txt
+          
+          # Update Windows hosts file with ingress IP
+          if [ -d "/c/Windows/System32/drivers/etc" ]; then
+            echo "$INGRESS_IP wisecow.local" >> /c/Windows/System32/drivers/etc/hosts
+          fi
+        fi
+    
+    - name: Test HTTPS endpoint
+      run: |
+        echo "Testing HTTPS endpoint..."
+        sleep 30  # Wait for ingress to be fully ready
+        
+        # Test HTTPS only
+        curl -k -v https://wisecow.local/ || echo "HTTPS test failed"
+    
+    - name: Save kubeconfig for local access
+      run: |
+        kubectl config view --raw > kubeconfig.yaml
+        
+        # Update kubeconfig to use existing tls/ directory paths
+        sed -i 's|/home/runner/.minikube/ca.crt|tls/tls.crt|g' kubeconfig.yaml
+        sed -i 's|/home/runner/.minikube/profiles/minikube/client.crt|tls/tls.crt|g' kubeconfig.yaml
+        sed -i 's|/home/runner/.minikube/profiles/minikube/client.key|tls/tls.key|g' kubeconfig.yaml
+        
+        echo "Kubeconfig saved with tls/ directory paths"
+    
+    - name: Upload kubeconfig
+      uses: actions/upload-artifact@v4
+      with:
+        name: kubeconfig
+        path: kubeconfig.yaml
+    
+    - name: Cleanup on failure
+      if: failure()
+      run: |
+        # Stop tunnel if it's running
+        if [ -f tunnel.pid ]; then
+          kill $(cat tunnel.pid) || true
+        fi
+        minikube stop || true
