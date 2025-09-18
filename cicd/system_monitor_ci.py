@@ -8,7 +8,15 @@ CPU_THRESHOLD = int(os.getenv('CPU_THRESHOLD', 70))
 MEMORY_THRESHOLD = int(os.getenv('MEMORY_THRESHOLD', 70))
 DISK_THRESHOLD = int(os.getenv('DISK_THRESHOLD', 70))
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+# Setup logging to both console and file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('system_health.log')
+    ]
+)
 
 def check_system_health():
     """CI/CD system health check"""

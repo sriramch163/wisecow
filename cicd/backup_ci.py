@@ -9,7 +9,15 @@ from datetime import datetime
 SOURCE_DIR = os.getenv('SOURCE_DIR', './k8s')
 S3_BUCKET = os.getenv('S3_BUCKET')
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+# Setup logging to both console and file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('backup.log')
+    ]
+)
 
 def backup_for_ci():
     """CI/CD backup - artifacts only"""
@@ -19,9 +27,12 @@ def backup_for_ci():
         logging.error(f"Source not found: {SOURCE_DIR}")
         return False
     
-    # Create backup
+    # Create backup directory and file
+    backup_dir = "/tmp/backups"
+    os.makedirs(backup_dir, exist_ok=True)
+    
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_file = f"ci_backup_{timestamp}.tar.gz"
+    backup_file = os.path.join(backup_dir, f"ci_backup_{timestamp}.tar.gz")
     
     with tarfile.open(backup_file, "w:gz") as tar:
         tar.add(SOURCE_DIR, arcname="artifacts")
