@@ -126,6 +126,18 @@ jobs:
         
         echo "Kubeconfig saved with tls/ directory paths"
     
+    - name: Create artifacts directory
+      run: |
+        mkdir -p artifacts
+        cp kubeconfig.yaml artifacts/
+        cp minikube-ip.txt artifacts/ 2>/dev/null || true
+        cp ingress-ip.txt artifacts/ 2>/dev/null || true
+        cp tunnel.log artifacts/ 2>/dev/null || true
+        cp -r tls/ artifacts/ 2>/dev/null || true
+        cp -r k8s/ artifacts/ 2>/dev/null || true
+        cp -r cicd/ artifacts/ 2>/dev/null || true
+        cp -r local/ artifacts/ 2>/dev/null || true
+    
     - name: Automated Backup
       env:
         SOURCE_DIR: ./artifacts
