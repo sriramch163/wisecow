@@ -126,41 +126,11 @@ jobs:
         
         echo "Kubeconfig saved with tls/ directory paths"
     
-    - name: Create artifacts directory
-      run: |
-        mkdir -p artifacts
-        cp kubeconfig.yaml artifacts/
-        cp minikube-ip.txt artifacts/ 2>/dev/null || true
-        cp ingress-ip.txt artifacts/ 2>/dev/null || true
-        cp tunnel.log artifacts/ 2>/dev/null || true
-        cp -r tls/ artifacts/ 2>/dev/null || true
-        cp -r k8s/ artifacts/ 2>/dev/null || true
-        cp -r cicd/ artifacts/ 2>/dev/null || true
-        cp -r local/ artifacts/ 2>/dev/null || true
-    
-    - name: Automated Backup
-      env:
-        SOURCE_DIR: ./artifacts
-        STORAGE_TYPE: s3
-        S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET || 'wisecow-backups' }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      run: |
-        pip install boto3
-        python cicd/backup_ci.py
-        cat backup_report.json
-    
-    - name: Upload artifacts
+    - name: Upload kubeconfig
       uses: actions/upload-artifact@v4
       with:
-        name: wisecow-backup
-        path: artifacts/
-        
-    - name: Upload backup report
-      uses: actions/upload-artifact@v4
-      with:
-        name: backup-report
-        path: backup_report.json
+        name: kubeconfig
+        path: kubeconfig.yaml
     
 
     

@@ -25,7 +25,7 @@ jobs:
           CPU_THRESHOLD: 80
           MEMORY_THRESHOLD: 80
           DISK_THRESHOLD: 80
-        run: python cicd/system_monitor_ci.py
+        run: system_monitor_ci.py
       
       - name: Upload health logs
         uses: actions/upload-artifact@v4
@@ -37,8 +37,6 @@ jobs:
 
   backup:
     runs-on: ubuntu-latest
-    needs: health-check
-    if: success()
     steps:
       - uses: actions/checkout@v4
       
@@ -47,33 +45,72 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Install dependencies
-        run: pip install -r cicd/requirements-ci.txt
+      - name: Create backup directory
+        run: |
+          mkdir -p backup-artifacts
+          cp -r k8s/ backup-artifacts/
+          cp -r tls/ backup-artifacts/
+          cp -r cicd/ backup-artifacts/
+          cp -r local/ backup-artifacts/
+          cp *.md backup-artifacts/ 2>/dev/null || true
+          cp *.sh backup-artifacts/ 2>/dev/null || true
+          cp Dockerfile backup-artifacts/ 2>/dev/null || true
       
-      - name: Run backup
+      - name: Automated Backup to S3
         env:
-          SOURCE_DIR: ./k8s
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: python cicd/backup_ci.py
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET || 'wisecow-backups' }}
+        run: |
+          pip install boto3
+          python -c "
+          import os, tarfile, boto3, json
+          from datetime import datetime
+          
+          # Create archive
+          timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+          archive_name = f'backup_{timestamp}.tar.gz'
+          
+          with tarfile.open(archive_name, 'w:gz') as tar:
+              tar.add('backup-artifacts', arcname='backup')
+          
+          # Upload to S3 if credentials available
+          report = {'timestamp': datetime.now().isoformat(), 'status': 'success'}
+          
+          try:
+              if os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('BACKUP_S3_BUCKET'):
+                  s3 = boto3.client('s3')
+                  bucket = os.getenv('BACKUP_S3_BUCKET')
+                  s3.upload_file(archive_name, bucket, f'backups/{archive_name}')
+                  report['location'] = f's3://{bucket}/backups/{archive_name}'
+                  print(f'Backup uploaded to S3: {report[\"location\"]}')
+              else:
+                  report['location'] = 'GitHub Artifacts only'
+                  print('S3 credentials not found, using GitHub artifacts')
+          except Exception as e:
+              report['status'] = 'partial'
+              report['error'] = str(e)
+              report['location'] = 'GitHub Artifacts only'
+              print(f'S3 upload failed: {e}')
+          
+          with open('backup_report.json', 'w') as f:
+              json.dump(report, f, indent=2)
+          
+          print(f'Backup Status: {report[\"status\"].upper()}')
+          "
       
-      - name: Upload backup logs
+      - name: Upload backup artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wisecow-backup
+          path: backup-artifacts/
+      
+      - name: Upload backup report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: backup-logs
-          path: backup.log
-          overwrite: true
-      
-      - name: Upload backup files
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: backup-files
-          path: /tmp/backups/
-          overwrite: true
+          name: backup-report
+          path: backup_report.json
 
   notify:
     runs-on: ubuntu-latest
