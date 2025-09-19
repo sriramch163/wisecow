@@ -37,6 +37,7 @@ jobs:
 
   backup:
     runs-on: ubuntu-latest
+    needs: health-check
     steps:
       - uses: actions/checkout@v4
       
