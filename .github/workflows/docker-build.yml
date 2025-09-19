@@ -113,6 +113,7 @@ jobs:
         
         # Test HTTPS only
         curl -k -v https://wisecow.local/ || echo "HTTPS test failed"
+        echo "Succesfully Accessed...."
     
     - name: Save kubeconfig for local access
       run: |
