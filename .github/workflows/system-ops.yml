@@ -25,7 +25,7 @@ jobs:
           CPU_THRESHOLD: 80
           MEMORY_THRESHOLD: 80
           DISK_THRESHOLD: 80
-        run: python cicd/system_monitor_ci.py
+        run: python cicd/health_monitor.py
       
       - name: Upload health logs
         uses: actions/upload-artifact@v4

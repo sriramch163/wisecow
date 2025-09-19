@@ -115,23 +115,7 @@ jobs:
         curl -k -v https://wisecow.local/ || echo "HTTPS test failed"
         echo "Succesfully Accessed...."
     
-    - name: Save kubeconfig for local access
-      run: |
-        kubectl config view --raw > kubeconfig.yaml
-        
-        # Update kubeconfig to use existing tls/ directory paths
-        sed -i 's|/home/runner/.minikube/ca.crt|tls/tls.crt|g' kubeconfig.yaml
-        sed -i 's|/home/runner/.minikube/profiles/minikube/client.crt|tls/tls.crt|g' kubeconfig.yaml
-        sed -i 's|/home/runner/.minikube/profiles/minikube/client.key|tls/tls.key|g' kubeconfig.yaml
-        
-        echo "Kubeconfig saved with tls/ directory paths"
-    
-    - name: Upload kubeconfig
-      uses: actions/upload-artifact@v4
-      with:
-        name: kubeconfig
-        path: kubeconfig.yaml
-    
+  
 
     
     - name: Cleanup on failure
