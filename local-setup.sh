@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Local setup script for Minikube cluster in Git Bash
 
 echo "=== STEP 1: Using workflow-generated kubeconfig ==="
 if [ -f "kubeconfig.yaml" ]; then

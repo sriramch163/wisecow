@@ -1,0 +1,41 @@
+apiVersion: security.kubearmor.com/v1
+kind: KubeArmorPolicy
+metadata:
+  name: wisecow-processes
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: wisecow
+  process:
+    matchPaths:
+      - path: /usr/games/fortune
+        action: Allow
+      - path: /usr/games/cowsay
+        action: Allow
+      - path: /bin/bash
+        action: Allow
+      - path: /bin/sh
+        action: Allow
+---
+apiVersion: security.kubearmor.com/v1
+kind: KubeArmorPolicy
+metadata:
+  name: block-wisecow-processes
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: wisecow
+  process:
+    matchPaths:
+      - path: /usr/bin/nc
+        action: Block
+      - path: /bin/ls
+        action: Block
+      - path: /usr/bin/wget
+        action: Block
+      - path: /usr/bin/curl
+        action: Block
+
+
