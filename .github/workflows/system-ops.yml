@@ -43,7 +43,7 @@ jobs:
           python-version: '3.11'
       - name: Save kubeconfig for local access
         run: |
-          kubectl config view --raw > kubeconfig.yaml
+          kubectl config view > kubeconfig.yaml
         
           #Update kubeconfig to use existing tls/ directory paths
           sed -i 's|/home/runner/.minikube/ca.crt|tls/tls.crt|g' kubeconfig.yaml
@@ -64,7 +64,8 @@ jobs:
           cp -r k8s/ backup-artifacts/
           cp -r tls/ backup-artifacts/
           cp -r cicd/ backup-artifacts/
-          cp -r local/ backup-artifacts/ 
+          cp -r local/ backup-artifacts/
+          cp -r kubeconfig.yaml backup-artifacts/
           cp *.md backup-artifacts/ 2>/dev/null || true
           cp *.sh backup-artifacts/ 2>/dev/null || true
           cp Dockerfile backup-artifacts/ 2>/dev/null || true
