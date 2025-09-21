@@ -41,6 +41,22 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+      - name: Save kubeconfig for local access
+        run: |
+          kubectl config view --raw > kubeconfig.yaml
+        
+          #Update kubeconfig to use existing tls/ directory paths
+          sed -i 's|/home/runner/.minikube/ca.crt|tls/tls.crt|g' kubeconfig.yaml
+          sed -i 's|/home/runner/.minikube/profiles/minikube/client.crt|tls/tls.crt|g' kubeconfig.yaml
+          sed -i 's|/home/runner/.minikube/profiles/minikube/client.key|tls/tls.key|g' kubeconfig.yaml
+        
+          echo "Kubeconfig saved with tls/ directory paths"
+    
+      - name: Upload kubeconfig
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubeconfig
+          path: kubeconfig.yaml
       
       - name: Create backup directory
         run: |
@@ -48,11 +64,10 @@ jobs:
           cp -r k8s/ backup-artifacts/
           cp -r tls/ backup-artifacts/
           cp -r cicd/ backup-artifacts/
-          cp -r local/ backup-artifacts/
+          cp -r local/ backup-artifacts/ 
           cp *.md backup-artifacts/ 2>/dev/null || true
           cp *.sh backup-artifacts/ 2>/dev/null || true
           cp Dockerfile backup-artifacts/ 2>/dev/null || true
-          cp ~/.kube/config backup-artifacts/kubeconfig 2>/dev/null || true
       
       - name: Automated Backup to S3
         env:
